@@ -14,8 +14,7 @@
     "version_name": "2.0.0",
     "description": "Download with Xtreme Download Manager for Firefox. Captures downloads, streams videos from popular sites, and integrates with XDM desktop app.",
     "host_permissions": [
-        "*://*/*",
-        "http://127.0.0.1:8597/*"
+        "*://*/*"
     ],
     "permissions": [
         "downloads",
@@ -35,9 +34,6 @@
         "16": "icon16.png",
         "48": "icon48.png",
         "128": "icon128.png"
-    },
-    "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8597/*"
     },
     "options_ui": {
         "page": "options.html",
