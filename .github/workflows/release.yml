@@ -103,9 +103,12 @@ jobs:
             libgdiplus \
             ffmpeg \
             rpm \
-            dpkg-dev \
-            crossbuild-essential-${{ matrix.apt_arch }} \
-            gcc-${{ matrix.apt_arch }}-linux-gnu
+            dpkg-dev
+
+          # Only install cross-compilation tools for ARM64
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get install -y crossbuild-essential-arm64 gcc-aarch64-linux-gnu
+          fi
 
       - name: Restore NuGet packages
         run: dotnet restore app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj
