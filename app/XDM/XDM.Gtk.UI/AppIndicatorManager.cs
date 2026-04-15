@@ -29,15 +29,15 @@ namespace XDM.GtkUI
         private bool        _disposed;
 
         // ── Callbacks supplied by the caller ─────────────────────────────────────
-        private readonly Action _onShow;
-        private readonly Action _onNewDownload;
-        private readonly Action _onExit;
+        private readonly System.Action _onShow;
+        private readonly System.Action _onNewDownload;
+        private readonly System.Action _onExit;
 
         // ── Public event ─────────────────────────────────────────────────────────
         public event EventHandler? ShowWindowRequested;
 
         // ── Constructor ──────────────────────────────────────────────────────────
-        public AppIndicatorManager(string baseDirectory, Action onShow, Action onNewDownload, Action onExit)
+        public AppIndicatorManager(string baseDirectory, System.Action onShow, System.Action onNewDownload, System.Action onExit)
         {
             _onShow        = onShow;
             _onNewDownload = onNewDownload;
@@ -139,7 +139,7 @@ namespace XDM.GtkUI
 
                 _gtkIcon = new StatusIcon(pixbuf)
                 {
-                    Tooltip = "Xtreme Download Manager",
+                    TooltipText = "Xtreme Download Manager",
                     Visible = true
                 };
                 _gtkIcon.Activate   += (_, _) => _onShow();

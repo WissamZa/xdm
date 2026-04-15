@@ -182,14 +182,20 @@ chmod +x "$HOST_OUT/xdm-app-host" 2>/dev/null || true
 
 # ── Copy icon for Linux builds ───────────────────────────────────────────────
 if [[ "$PLATFORM_LABEL" == "Linux" ]]; then
-    info "Copying application icon..."
-    ICON_SRC="$SOLUTION_DIR/xdm-logo.png"
-    ICON_DEST="$OUTPUT_DIR/xdm-logo.png"
-    if [[ -f "$ICON_SRC" ]]; then
-        cp "$ICON_SRC" "$ICON_DEST"
-        success "Icon copied to output directory"
+    info "Copying application icons..."
+    # Root icons
+    [[ -f "$SCRIPT_DIR/xdm-logo.svg" ]] && cp "$SCRIPT_DIR/xdm-logo.svg" "$OUTPUT_DIR/xdm-logo.svg"
+    [[ -f "$SCRIPT_DIR/xdm-logo.png" ]] && cp "$SCRIPT_DIR/xdm-logo.png" "$OUTPUT_DIR/xdm-logo.png"
+    
+    # High-res icon from Gtk UI project
+    GTK_ICON_SRC="$SOLUTION_DIR/XDM.Gtk.UI/xdm-logo-512.png"
+    if [[ -f "$GTK_ICON_SRC" ]]; then
+        cp "$GTK_ICON_SRC" "$OUTPUT_DIR/xdm-logo-512.png"
+        # Also ensure xdm-logo.png is the high-res one if available
+        cp "$GTK_ICON_SRC" "$OUTPUT_DIR/xdm-logo.png"
+        success "Icons copied to output directory"
     else
-        warn "Icon file not found: $ICON_SRC"
+        warn "High-res icon not found: $GTK_ICON_SRC"
     fi
 fi
 

@@ -24,40 +24,43 @@ namespace XDM.GtkUI
             if (!string.IsNullOrEmpty(debugMode) && debugMode == "1")
             {
                 var logFile = System.IO.Path.Combine(Config.AppDir, "log.txt");
-                Log.InitFileBasedTrace(System.IO.Path.Combine(Config.AppDir, "log.txt"));
+                Log.InitFileBasedTrace(logFile);
             }
-        Log.Debug("Application_Startup");
-        // ── Wayland / portal setup ──────────────────────────────────────
-        // GTK_USE_PORTAL=1 → file-chooser, print, colour-picker dialogs
-        // all go through XDG Desktop Portals, which
-        // is required on locked-down Wayland compositors.
-        Environment.SetEnvironmentVariable("GTK_USE_PORTAL", "1");
+            Log.Debug("Application_Startup");
 
-        // Let GTK auto-select the best backend:
-        // • Wayland when WAYLAND_DISPLAY is set (native Wayland window)
-        // • X11/Xwayland when only DISPLAY is set
-        // Only override if the user has not already forced a backend.
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GDK_BACKEND")))
-        {
-            var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
-            if (!string.IsNullOrEmpty(waylandDisplay))
+            // ── Wayland / portal setup ──────────────────────────────────────
+            // GTK_USE_PORTAL=1 → file-chooser, print, colour-picker dialogs
+            // all go through XDG Desktop Portals, which
+            // is required on locked-down Wayland compositors.
+            Environment.SetEnvironmentVariable("GTK_USE_PORTAL", "1");
+
+            // Let GTK auto-select the best backend:
+            // • Wayland when WAYLAND_DISPLAY is set (native Wayland window)
+            // • X11/Xwayland when only DISPLAY is set
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GDK_BACKEND")))
             {
-                // Prefer native Wayland; fall through to X11 if init fails.
-                Environment.SetEnvironmentVariable("GDK_BACKEND", "wayland,x11");
+                var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
+                if (!string.IsNullOrEmpty(waylandDisplay))
+                {
+                    Environment.SetEnvironmentVariable("GDK_BACKEND", "wayland,x11");
+                }
+                else
+                {
+                    Environment.SetEnvironmentVariable("GDK_BACKEND", "wayland,x11");
+                }
             }
-            else
-            {
-                // Auto-detect: prefer Wayland if available, fallback to X11
-                Environment.SetEnvironmentVariable("GDK_BACKEND", "wayland,x11");
-            }
-        }
-        
-        // Enable GTK4-like Wayland features on GTK3
-        // This improves native Wayland behavior and reduces X11 dependency
-        Environment.SetEnvironmentVariable("GDK_ENABLE_BROADWAY", "0");
-            }
+            
+            // Enable GTK4-like Wayland features on GTK3
+            Environment.SetEnvironmentVariable("GDK_ENABLE_BROADWAY", "0");
+
+            // Explicitly set names for window manager / compositor identification
+            // This is key for KDE Plasma 6 (Wayland) to associate windows with icons/desktop files.
+            GLib.Global.ProgramName = "xdm-app";
+            GLib.Global.ApplicationName = "Xtreme Download Manager";
+
             Gtk.Application.Init("xdm-app", ref args);
             GLib.ExceptionManager.UnhandledException += ExceptionManager_UnhandledException;
+
             var globalStyleSheet = @"
                                     .large-font{ font-size: 16px; }
                                     .medium-font{ font-size: 14px; }
@@ -67,50 +70,15 @@ namespace XDM.GtkUI
             var provider = new CssProvider();
             provider.LoadFromData(globalStyleSheet);
             Gtk.StyleContext.AddProviderForScreen(screen, provider, 800);
-            //var screen = Gdk.Screen.Default;
-            //var provider = new CssProvider();
-            //provider.LoadFromData(@".dark
-            //                                    {
-            //                                        color: gray;
-            //                                        background: rgb(36,41,46);
-            //                                    }
-
-            //                                    treeview.view :selected
-            //                                    {
-            //                                        background-color: rgb(10,106,182);
-            //                                        color: white;
-            //                                    }
-            //.listt
-            //{
-            //font-family: Segoe UI;
-            //}
-            //                                    .dark2
-            //                                    {
-            //                                        color: gray;
-            //                                        background: rgb(35,35,35);
-            //                                        /*background: rgb(36,41,46);*/
-            //                                    }
-            //                                    .toolbar-border-dark
-            //                                    {
-            //                                        border-bottom: 1px solid rgb(20,20,20);
-            //                                    }
-            //                                    .toolbar-border-light
-            //                                    {
-            //                                        border-bottom: 2px solid rgb(240,240,240);
-            //                                    }
-            //                                  ");
-            //Gtk.StyleContext.AddProviderForScreen(screen, provider, 800);
 
             ServicePointManager.ServerCertificateValidationCallback += (a, b, c, d) => true;
             ServicePointManager.DefaultConnectionLimit = 100;
-
             ServicePointManager.SecurityProtocol = SecurityProtocolType.SystemDefault;
 
             AppContext.SetSwitch(DisableCachingName, true);
             AppContext.SetSwitch(DontEnableSchUseStrongCryptoName, true);
 
             Log.Debug("Loading languages...");
-
             LoadLanguageTexts();
 
             if (Config.Instance.AllowSystemDarkTheme)
@@ -137,11 +105,9 @@ namespace XDM.GtkUI
                 .Configure();
 
             Log.Debug("Processing arguments...");
-
             ArgsProcessor.Process(args);
 
             Log.Debug("Gtk Run...");
-
             Gtk.Application.Run();
         }
 

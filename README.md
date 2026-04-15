@@ -1,81 +1,100 @@
 <p id="downloads" align="center">
 	<img src="https://i.stack.imgur.com/TOfqL.png" height="120px"/>
-	<h1 align="center">Xtreme Download Manager</h1>
+	<h1 align="center">Xtreme Download Manager (XDM)</h1>
 </p>
 
 <p align="center">
-	<a href="https://github.com/subhra74/xdm/workflows/Java%20CI/badge.svg?branch=master"><img src="https://github.com/subhra74/xdm/workflows/Java%20CI/badge.svg?branch=master" alt="Java CI" /></a>
-	<a href="https://camo.githubusercontent.com/278e057571a0481121b2d60490ff656fb8736a20/68747470733a2f2f696d672e736869656c64732e696f2f6769746875622f646f776e6c6f6164732f73756268726137342f78646d2f746f74616c2e737667"><img src="https://img.shields.io/github/downloads/subhra74/xdm/total.svg" alt="Github All Releases" /></a>
+	<img src="https://img.shields.io/badge/.NET-8.0-blue.svg" alt=".NET 8" />
+	<img src="https://img.shields.io/badge/C%23-13.0-green.svg" alt="C# 13" />
+	<img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg" alt="Platform" />
+	<img src="https://img.shields.io/github/license/subhra74/xdm.svg" alt="License" />
 </p>
 
-### [XDM Homepage](https://xtremedownloadmanager.com/ "XDM Homepage") ###
+---
 
-[New Experimental Beta version is out](https://github.com/subhra74/xdm-experimental-binaries/tags)
+**Xtreme Download Manager (XDM)** is a powerful, cross-platform download accelerator designed to increase download speeds by up to 500%. It features advanced segmenting technology, video streaming capture, and seamless browser integration.
 
-[News about new version](https://github.com/subhra74/xdm/discussions/768)
+This version of XDM represents a **major modernization effort**, moving from legacy Java to **modern .NET 8**, providing better performance, smaller binaries, and native feel on all platforms.
 
-**X**treme **D**ownload **M**anager (XDM) is a powerful tool to increase download speeds up to 500%, save videos from popular video streaming websites, resume broken/dead downloads, schedule and convert downloads.<br>
-XDM seamlessly integrates with Google Chrome, Mozilla Firefox Quantum, Opera, Vivaldi and other Chroumium and Firefox based browsers, to take over downloads and saving streaming videos from web. XDM has a built in video converter which lets you convert your downloaded videos to different formats so that you can watch them on your mobile or TV (100+ devices are supported)
+## ✨ Key Features
 
-[![name](https://subhra74.github.io/xdm/download.png)](https://xtremedownloadmanager.com/#downloads)
+- **Blazing Fast Downloads:** Multi-segment parallel downloading for maximum speed.
+- **Video Grabber:** Save streaming videos from YouTube, Vimeo, and thousands of other sites.
+- **Universal Integration:** Seamlessly works with Chrome, Firefox, Edge, Opera, Vivaldi, and more.
+- **Adaptive Streaming:** Full support for HLS, MPEG-DASH, and Adobe HDS formats.
+- **Built-in Media Converter:** Convert downloaded videos to MP3 or MP4 automatically.
+- **Native Experience:** Native WPF UI on Windows and GTK3 UI on Linux/macOS with Wayland support.
+- **Smart Scheduler:** Schedule downloads, limit speeds, and manage queues effectively.
 
-## Screenshots
+## 🖼️ Screenshots
 
-| ![xdm_1][01] | ![xdm_5][05] | ![xdm_3][03] |
-| --- | --- | --- |
-| ![xdm_7][07] | ![xdm_6][06] | ![xdm_9][09] |
-| ![xdm_4][04] | ![xdm_2][02] |  |
+| ![xdm_main][01] | ![xdm_video][05] | ![xdm_settings][03] |
+| :---: | :---: | :---: |
+| Main Interface | Video Capture | Advanced Settings |
 
+## 🚀 Quick Start
 
-## Features
-- Download files at maximum possible speed (5-6 times faster than conventional downloaders).
-- XDM can save video from numerous video streaming sites.
-- Works with all modern browsers on Windows, Linux and Mac OS X. XDM supports [Google Chrome][18], [Chromium][18], [Firefox Quantum][19], [Vivaldi][20], [Edge][21] and many other popular browsers.
-- XDM has built in video converter, which lets you convert downloaded video to MP3 and MP4 formats.
-- Supports `HTTP`, `HTTPS`, `FTP` as well as video streaming protocols like `MPEG-DASH`, `Apple HLS`, and `Adobe HDS`.
-- XDM also supports authentication, proxy servers, cookies, redirection etc.
-- Video download, clipboard monitoring, automatic antivirus checking, scheduler, system shutdown on download completion.
-- Resumes broken / dead downloads caused by connection problem, power failure or session expiration.
-- Works with Windows ISA, auto proxy scripts, proxy servers, NTLM, Kerberos authentication.
+### 1. Download Binaries
+Grab the latest release for your platform from the [Releases](https://github.com/subhra74/xdm/releases) page.
 
-## Building from source
-<pre>
-This is a standard maven project.
-If you have configured Java and Maven use: <b>mvn clean install</b> to build the project.
-The jar will be created in target directory.
-</pre>
+- **Windows:** Download `.msi` or portable `.zip`.
+- **Linux:** Download `.deb` or portable `.tar.xz`.
+- **macOS:** Download `.dmg` or portable `.tar.xz`.
 
-## Submitting translations
-If you want to translate XDM to your language, feel free to submit a translation file.<br>
-Steps are mentioned in: https://github.com/subhra74/xdm/wiki/Submitting-translations-for-XDM
+### 2. Install Browser Extension
+To enable automatic download capturing, install the XDM Browser Monitor for your browser:
+- [Chrome / Edge / Opera / Brave / Vivaldi][18]
+- [Firefox][19]
 
+## 🛠️ Building from Source
+
+XDM is now built using the **.NET 8 SDK**.
+
+### Prerequisites
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- **Windows:** Visual Studio 2022 (with WPF workload)
+- **Linux:** GTK3 development libraries (`libgtk-3-dev`)
+
+### One-Click Build
+We provide easy build scripts in the repository root:
+
+```bash
+# Linux / macOS
+./build.sh
+
+# Windows (CMD)
+build.bat
+
+# Windows (PowerShell)
+.\build.ps1
+```
+
+The output will be generated in the `dist/` directory.
+
+## 📈 Project Status
+
+This project is undergoing active modernization. For detailed information on completed tasks and future roadmap, please refer to our [**Modernization Plan**](PLAN.md).
+
+- [**TASKS.md**](agent/TASKS.md) — Current progress and upcoming features.
+- [**HISTORY.md**](agent/HISTORY.md) — Change log for recent versions.
+
+## 🌍 Translations
+
+Help us make XDM available in your language! You can submit translations through our [Translation Generator Tool](translation-generator/).
+
+---
+
+### Links & Resources
+
+- [Official Website](https://xtremedownloadmanager.com/)
+- [Bug Reports](https://github.com/subhra74/xdm/issues)
+- [Discussions](https://github.com/subhra74/xdm/discussions)
 
 [//]: #ImageLinks
 [01]: https://i.stack.imgur.com/s7ViA.jpg
-[02]: https://i.stack.imgur.com/90TQO.jpg
 [03]: https://i.stack.imgur.com/V5XF3.jpg
-[04]: https://i.stack.imgur.com/aFyH5.png
 [05]: https://i.stack.imgur.com/lmAr6.png
-[06]: https://i.stack.imgur.com/H4yMj.png
-[07]: https://i.stack.imgur.com/8ulBq.png
-[08]: https://i.stack.imgur.com/Gfgae.jpg
-[09]: https://i.stack.imgur.com/GlVDC.png
-
-[//]: #DownloadLinks
-[10]: https://github.com/subhra74/xdm/releases/download/7.2.10/xdmsetup.msi
-[11]: https://github.com/subhra74/xdm/releases/download/7.2.10/xdm-setup-7.2.10.tar.xz
-[12]: #
-[13]: https://github.com/subhra74/xdm/releases/download/7.2.10/xdman.jar
-[14]: https://sourceforge.net/projects/xdman/files/xdmsetup-2018.msi/download
-[15]: https://sourceforge.net/projects/xdman/files/xdm-2018-x64.tar.xz/download
-[16]: https://sourceforge.net/projects/xdman/files/XDMSetup.dmg/download
-[17]: http://xdman.sourceforge.net/xdman.jar
-[100]: https://github.com/subhra74/xdm/releases/download/7.2.11/xdm-setup.msi
-[101]: https://github.com/subhra74/xdm/releases/download/7.2.11/xdm-setup-7.2.11.tar.xz
-[102]: https://github.com/subhra74/xdm/releases/download/7.2.11/xdman.jar
 
 [//]: #AddonLinks
 [18]: https://chrome.google.com/webstore/detail/xtreme-download-manager/dkckaoghoiffdbomfbbodbbgmhjblecj
 [19]: https://addons.mozilla.org/en-US/firefox/addon/xdm-browser-monitor/
-[20]: #
-[21]: https://sourceforge.net/p/xdman/blog/2018/01/xdm-integration-with-microsoft-edge/

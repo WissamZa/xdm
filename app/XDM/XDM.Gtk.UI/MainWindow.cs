@@ -113,6 +113,12 @@ namespace XDM.GtkUI
         try
         {
             var iconSrc = IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "xdm-logo-512.png");
+            if (!File.Exists(iconSrc))
+            {
+                // Fallback to standard xdm-logo.png which build.sh copies
+                iconSrc = IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "xdm-logo.png");
+            }
+
             if (File.Exists(iconSrc))
             {
                 var icons = new List<Gdk.Pixbuf>();
@@ -147,43 +153,35 @@ namespace XDM.GtkUI
         {
             TraceLog.Log.Debug(ex, "Failed to set window icon list");
         }
-                else
-                {
-                    SetDefaultIconFromFile(iconSrc);
-                }
-            }
-            catch (Exception ex)
-            {
-                TraceLog.Log.Debug(ex, "Failed to set window icon list");
-            }
-            SetPosition(WindowPosition.CenterAlways);
-            DeleteEvent += AppWin1_DeleteEvent;
-            this.windowGroup = new WindowGroup();
-            this.windowGroup.AddWindow(this);
 
-            var hbMain = new HBox();
-            hbMain.PackStart(CreateCategoryTree(), false, true, 0);
-            hbMain.PackStart(CreateMainPanel(), true, true, 0);
-            Add(hbMain);
-            hbMain.Show();
+        SetPosition(WindowPosition.CenterAlways);
+        DeleteEvent += AppWin1_DeleteEvent;
+        this.windowGroup = new WindowGroup();
+        this.windowGroup.AddWindow(this);
 
-            categoryTreeStore!.GetIterFirst(out TreeIter iter);
-            categoryTreeStore.IterNext(ref iter);
-            categoryTree!.Selection.SelectIter(iter);
-            UpdateBrowserMonitorButton();
-            CreateMenu();
-            SetDefaultSize(800, 500);
+        var hbMain = new HBox();
+        hbMain.PackStart(CreateCategoryTree(), false, true, 0);
+        hbMain.PackStart(CreateMainPanel(), true, true, 0);
+        Add(hbMain);
+        hbMain.Show();
 
-            clipboarMonitor = new PollingClipboardMonitor();
-            clipboarMonitor.ClipboardChanged += (_, _) => this.ClipboardChanged?.Invoke(this, EventArgs.Empty);
+        categoryTreeStore!.GetIterFirst(out TreeIter iter);
+        categoryTreeStore.IterNext(ref iter);
+        categoryTree!.Selection.SelectIter(iter);
+        UpdateBrowserMonitorButton();
+        CreateMenu();
+        SetDefaultSize(800, 500);
 
-            _trayIcon = new AppIndicatorManager(
-                baseDirectory:   IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory),
-                onShow:          ShowAndActivate,
-                onNewDownload:   () => NewDownloadClicked?.Invoke(this, EventArgs.Empty),
-                onExit:          () => { Application.Quit(); Environment.Exit(0); }
-            );
-        }
+        clipboarMonitor = new PollingClipboardMonitor();
+        clipboarMonitor.ClipboardChanged += (_, _) => this.ClipboardChanged?.Invoke(this, EventArgs.Empty);
+
+        _trayIcon = new AppIndicatorManager(
+            baseDirectory:   IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory),
+            onShow:          ShowAndActivate,
+            onNewDownload:   () => NewDownloadClicked?.Invoke(this, EventArgs.Empty),
+            onExit:          () => { Application.Quit(); Environment.Exit(0); }
+        );
+    }
 
 
 
