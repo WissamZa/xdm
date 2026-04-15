@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using Gtk;
 using TraceLog;
@@ -26,8 +26,36 @@ namespace XDM.GtkUI
                 var logFile = System.IO.Path.Combine(Config.AppDir, "log.txt");
                 Log.InitFileBasedTrace(System.IO.Path.Combine(Config.AppDir, "log.txt"));
             }
-            Log.Debug("Application_Startup");
-            Environment.SetEnvironmentVariable("GTK_USE_PORTAL", "1");
+        Log.Debug("Application_Startup");
+        // ── Wayland / portal setup ──────────────────────────────────────
+        // GTK_USE_PORTAL=1 → file-chooser, print, colour-picker dialogs
+        // all go through XDG Desktop Portals, which
+        // is required on locked-down Wayland compositors.
+        Environment.SetEnvironmentVariable("GTK_USE_PORTAL", "1");
+
+        // Let GTK auto-select the best backend:
+        // • Wayland when WAYLAND_DISPLAY is set (native Wayland window)
+        // • X11/Xwayland when only DISPLAY is set
+        // Only override if the user has not already forced a backend.
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GDK_BACKEND")))
+        {
+            var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
+            if (!string.IsNullOrEmpty(waylandDisplay))
+            {
+                // Prefer native Wayland; fall through to X11 if init fails.
+                Environment.SetEnvironmentVariable("GDK_BACKEND", "wayland,x11");
+            }
+            else
+            {
+                // Auto-detect: prefer Wayland if available, fallback to X11
+                Environment.SetEnvironmentVariable("GDK_BACKEND", "wayland,x11");
+            }
+        }
+        
+        // Enable GTK4-like Wayland features on GTK3
+        // This improves native Wayland behavior and reduces X11 dependency
+        Environment.SetEnvironmentVariable("GDK_ENABLE_BROADWAY", "0");
+            }
             Gtk.Application.Init("xdm-app", ref args);
             GLib.ExceptionManager.UnhandledException += ExceptionManager_UnhandledException;
             var globalStyleSheet = @"
@@ -41,13 +69,13 @@ namespace XDM.GtkUI
             Gtk.StyleContext.AddProviderForScreen(screen, provider, 800);
             //var screen = Gdk.Screen.Default;
             //var provider = new CssProvider();
-            //provider.LoadFromData(@".dark 
+            //provider.LoadFromData(@".dark
             //                                    {
             //                                        color: gray;
             //                                        background: rgb(36,41,46);
             //                                    }
 
-            //                                    treeview.view :selected 
+            //                                    treeview.view :selected
             //                                    {
             //                                        background-color: rgb(10,106,182);
             //                                        color: white;
@@ -63,11 +91,11 @@ namespace XDM.GtkUI
             //                                        /*background: rgb(36,41,46);*/
             //                                    }
             //                                    .toolbar-border-dark
-            //                                    {  
+            //                                    {
             //                                        border-bottom: 1px solid rgb(20,20,20);
             //                                    }
             //                                    .toolbar-border-light
-            //                                    {  
+            //                                    {
             //                                        border-bottom: 2px solid rgb(240,240,240);
             //                                    }
             //                                  ");

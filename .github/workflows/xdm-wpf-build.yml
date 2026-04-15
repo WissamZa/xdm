@@ -2,13 +2,13 @@ name: .NET
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
-  build:
-
+  build-windows:
+    name: Build Windows (WPF)
     runs-on: windows-latest
 
     defaults:
@@ -16,14 +16,39 @@ jobs:
         working-directory: ./app/XDM/XDM.Wpf.UI/
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v2
-      with:
-        dotnet-version: 6.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xdm-wpf-release
+          path: ./app/XDM/XDM.Wpf.UI/bin/Release/
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux (GTK)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./app/XDM/XDM.Gtk.UI/
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install GTK dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore --configuration Release

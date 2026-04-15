@@ -23,18 +23,11 @@ namespace XDM.Core.Clients.Http
                 }
             }
 
-            if (Environment.Version.Major == 2)
-            {
-                return new WinHttpClient(proxy);
-            }
-            else
-            {
 #if NET5_0_OR_GREATER
-                return new DotNetHttpClient(proxy);
+            return new DotNetHttpClient(proxy);
 #else
-                return new NetFxHttpClient(proxy);
+            return new NetFxHttpClient(proxy);
 #endif
-            }
         }
     }
 }

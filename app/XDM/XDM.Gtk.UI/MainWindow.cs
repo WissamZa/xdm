@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using Gtk;
 using Application = Gtk.Application;
 using IoPath = System.IO.Path;
@@ -38,7 +39,7 @@ namespace XDM.GtkUI
         private bool isUpdateAvailable;
         private Image helpImage;
         private Label helpLabel;
-        private StatusIcon statusIcon;
+        private AppIndicatorManager? _trayIcon;
 
         internal WindowGroup GetWindowGroup() => this.windowGroup;
 
@@ -105,9 +106,56 @@ namespace XDM.GtkUI
         private Menu menuInProgress, menuFinished;
         private IPlatformClipboardMonitor clipboarMonitor;
 
-        public MainWindow() : base("Xtreme Download Manager")
+    public MainWindow() : base("Xtreme Download Manager")
+    {
+        // Set window icon at multiple resolutions; Wayland compositors and
+        // X11 window managers each pick whichever size they need.
+        try
         {
-            SetDefaultIconFromFile(IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "xdm-logo-512.png"));
+            var iconSrc = IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory, "xdm-logo-512.png");
+            if (File.Exists(iconSrc))
+            {
+                var icons = new List<Gdk.Pixbuf>();
+                int[] sizes = { 16, 32, 48, 64, 128, 256, 512 };
+                foreach (var size in sizes)
+                {
+                    try
+                    {
+                        var pixbuf = new Gdk.Pixbuf(iconSrc);
+                        var scaled = pixbuf.ScaleSimple(size, size, Gdk.InterpType.Bilinear);
+                        if (scaled != null)
+                        {
+                            icons.Add(scaled);
+                        }
+                    }
+                    catch
+                    {
+                        TraceLog.Log.Debug($"Failed to load icon size {size}x{size}");
+                    }
+                }
+                if (icons.Count > 0)
+                {
+                    Gtk.Window.DefaultIconList = icons.ToArray();
+                }
+            }
+            else
+            {
+                TraceLog.Log.Debug($"Icon file not found: {iconSrc}");
+            }
+        }
+        catch (Exception ex)
+        {
+            TraceLog.Log.Debug(ex, "Failed to set window icon list");
+        }
+                else
+                {
+                    SetDefaultIconFromFile(iconSrc);
+                }
+            }
+            catch (Exception ex)
+            {
+                TraceLog.Log.Debug(ex, "Failed to set window icon list");
+            }
             SetPosition(WindowPosition.CenterAlways);
             DeleteEvent += AppWin1_DeleteEvent;
             this.windowGroup = new WindowGroup();
@@ -129,14 +177,15 @@ namespace XDM.GtkUI
             clipboarMonitor = new PollingClipboardMonitor();
             clipboarMonitor.ClipboardChanged += (_, _) => this.ClipboardChanged?.Invoke(this, EventArgs.Empty);
 
-            statusIcon = new StatusIcon(GtkHelper.LoadSvg("xdm-logo", 128));
-            statusIcon.Activate += StatusIcon_Activate;
+            _trayIcon = new AppIndicatorManager(
+                baseDirectory:   IoPath.Combine(AppDomain.CurrentDomain.BaseDirectory),
+                onShow:          ShowAndActivate,
+                onNewDownload:   () => NewDownloadClicked?.Invoke(this, EventArgs.Empty),
+                onExit:          () => { Application.Quit(); Environment.Exit(0); }
+            );
         }
 
-        private void StatusIcon_Activate(object? sender, EventArgs e)
-        {
-            ShowAndActivate();
-        }
+
 
         private void CreateMenu()
         {

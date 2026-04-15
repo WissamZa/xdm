@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>xdm-app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0</project_license>
+  <name>Xtreme Download Manager</name>
+  <summary>Powerful download accelerator and video downloader</summary>
+  <description>
+    <p>XDM (Xtreme Download Manager) is a cross-platform download accelerator written in C#/.NET. It features multi-segment parallel downloading for up to 5-6x speed increase, streaming video capture, browser integration, and built-in media conversion.</p>
+    <p>Key Features:</p>
+    <ul>
+      <li>Multi-segment parallel downloading (up to 5-6× speed increase)</li>
+      <li>Streaming video capture (via yt-dlp integration)</li>
+      <li>Browser integration (Chrome, Firefox, Edge, Opera, Vivaldi, Brave)</li>
+      <li>HLS / MPEG-DASH / Adobe HDS adaptive stream download</li>
+      <li>Built-in FFmpeg-based media converter (MP3/MP4)</li>
+      <li>Download scheduler, speed limiter, queues</li>
+      <li>HTTP/HTTPS/FTP + proxy, auth, cookie support</li>
+      <li>Resume broken downloads</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">xdm-app.desktop</launchable>
+  <provides>
+    <id>xdm-app.desktop</id>
+  </provides>
+  <url type="homepage">https://xtremedownloadmanager.com/</url>
+  <url type="bugtracker">https://github.com/subhra74/xdm/issues</url>
+  <url type="donation">https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=subhra74%40gmail%2ecom&amp;lc=IN&amp;item_name=XDM+Development&amp;currency_code=USD</url>
+  <developer_name>Subhra Das Gupta</developer_name>
+  <update_contact>subhra74@gmail.com</update_contact>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main window showing downloads</caption>
+      <image type="source">https://raw.githubusercontent.com/subhra74/xdm/master/screenshots/xdm-main.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="8.0.25" date="2025-04-15">
+      <description>
+        <p>BETA Release with modernized .NET 8 runtime and improved Wayland support.</p>
+      </description>
+    </release>
+  </releases>
+</component>
