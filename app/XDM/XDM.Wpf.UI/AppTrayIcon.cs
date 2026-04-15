@@ -7,7 +7,7 @@ using System.Windows.Forms;
 using TraceLog;
 using Translations;
 using XDM.Core;
-
+using System.Windows.Forms;
 namespace XDM.Wpf.UI
 {
     internal static class AppTrayIcon

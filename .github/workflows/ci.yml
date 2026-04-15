@@ -154,7 +154,7 @@ jobs:
         run: brew install gtk+3
 
       - name: Restore NuGet packages
-        run: dotnet restore app/XDM/XDM.sln
+        run: dotnet restore app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj
 
       - name: Build main application
         run: |

@@ -25,7 +25,7 @@ name: Release XDM
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -34,7 +34,7 @@ permissions:
   packages: write
 
 env:
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: "8.0.x"
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   XDM_APP_VERSION: ${{ github.ref_name }}
@@ -108,7 +108,7 @@ jobs:
             gcc-${{ matrix.apt_arch }}-linux-gnu
 
       - name: Restore NuGet packages
-        run: dotnet restore app/XDM/XDM.sln
+        run: dotnet restore app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj
 
       - name: Publish main application
         run: |
@@ -328,7 +328,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore NuGet packages
-        run: dotnet restore app/XDM/XDM.sln
+        run: dotnet restore app/XDM/XDM.Wpf.UI/XDM.Wpf.UI.csproj
 
       - name: Publish main WPF application
         run: |
@@ -397,7 +397,7 @@ jobs:
         run: brew install gtk+3 ffmpeg
 
       - name: Restore NuGet packages
-        run: dotnet restore app/XDM/XDM.sln
+        run: dotnet restore app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj
 
       - name: Publish main application
         run: |
