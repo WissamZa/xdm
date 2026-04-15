@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>XDM - Not Connected</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="error.js"></script>
+</head>
+
+<body style="min-width: 400px;">
+  <div class="header">
+    <img src="xdm-logo-orange.png" alt="XDM" class="logo" onerror="this.style.display='none'">
+    <div class="header-text">
+      <div class="header-title">XDM Browser Monitor</div>
+      <div class="header-subtitle">Connection Error</div>
+    </div>
+    <div class="status-indicator disconnected"></div>
+  </div>
+
+  <div class="error-container">
+    <div class="error-msg">
+      Unable to connect to Xtreme Download Manager.<br>
+      Please make sure XDM is running and try again.
+    </div>
+    <div style="display: flex; justify-content: center; padding-top: 8px;">
+      <button class="primary-button" id="OpenLink">Launch XDM</button>
+    </div>
+  </div>
+</body>
+
+</html>

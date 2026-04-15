@@ -1,0 +1,756 @@
+# =============================================================================
+# XDM — Xtreme Download Manager
+# Multi-Platform CI/CD Release Workflow
+#
+# Triggers: Push tag matching v*.*.* (e.g., v9.0.0)
+#
+# Builds for:
+#   - Linux (x64, arm64)
+#   - Windows (x86)
+#   - macOS (x64, arm64)
+#
+# Produces:
+#   - .tar.xz portable archives
+#   - .deb package (Linux x64)
+#   - .rpm package (Linux x64)
+#   - .msi installer (Windows)
+#   - .dmg image (macOS)
+#   - AUR source tarball
+#   - Browser extensions (Chrome/Brave MV3 + Firefox MV3)
+#   - GitHub Release with all artifacts
+# =============================================================================
+
+name: Release XDM
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  actions: write
+  attestations: write
+  packages: write
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  XDM_APP_VERSION: ${{ github.ref_name }}
+
+jobs:
+  # ===========================================================================
+  # Job 1: Extract version from tag
+  # ===========================================================================
+  version:
+    name: Extract Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      version_major: ${{ steps.ver.outputs.major }}
+      version_minor: ${{ steps.ver.outputs.minor }}
+      version_patch: ${{ steps.ver.outputs.patch }}
+    steps:
+      - name: Extract version from tag
+        id: ver
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+          echo "patch=$PATCH" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+  # ===========================================================================
+  # Job 2: Build Linux (x64 & arm64)
+  # ===========================================================================
+  build-linux:
+    name: Build Linux (${{ matrix.arch }})
+    needs: version
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+        include:
+          - arch: x64
+            rid: linux-x64
+            apt_arch: amd64
+          - arch: arm64
+            rid: linux-arm64
+            apt_arch: arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install GTK3 and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libgdiplus \
+            ffmpeg \
+            rpm \
+            dpkg-dev \
+            crossbuild-essential-${{ matrix.apt_arch }} \
+            gcc-${{ matrix.apt_arch }}-linux-gnu
+
+      - name: Restore NuGet packages
+        run: dotnet restore app/XDM/XDM.sln
+
+      - name: Publish main application
+        run: |
+          dotnet publish app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained false \
+            -o dist/linux-${{ matrix.arch }} \
+            -p:PublishReadyToRun=true \
+            --nologo
+
+      - name: Publish browser host
+        run: |
+          mkdir -p dist/linux-${{ matrix.arch }}/browser-host
+          dotnet publish app/XDM/XDM.App.Host/XDM.App.Host.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained false \
+            -o dist/linux-${{ matrix.arch }}/browser-host \
+            --nologo
+
+      - name: Copy icons and extensions
+        run: |
+          # Icons
+          cp dist/linux/xdm-logo.svg dist/linux-${{ matrix.arch }}/ 2>/dev/null || true
+          cp dist/linux/xdm-logo-512.png dist/linux-${{ matrix.arch }}/xdm-logo.png 2>/dev/null || true
+          # Chrome extension
+          cp -r dist/linux/chrome-extension dist/linux-${{ matrix.arch }}/ 2>/dev/null || true
+          # Source pkg indicator
+          echo "pkg" > dist/linux-${{ matrix.arch }}/source_pkg.txt
+
+      - name: Make binaries executable
+        run: |
+          chmod +x dist/linux-${{ matrix.arch }}/xdm-app
+          chmod +x dist/linux-${{ matrix.arch }}/browser-host/xdm-app-host
+
+      - name: Create portable tar.xz archive
+        run: |
+          cd dist/linux-${{ matrix.arch }}
+          tar -cJf ../../xdm-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.tar.xz .
+          cd ../..
+
+      - name: Create .deb package (x64 only)
+        if: matrix.arch == 'x64'
+        run: |
+          ARCHIVE_DIR="deb-build/xdm_${{ needs.version.outputs.version }}_amd64"
+          mkdir -p "$ARCHIVE_DIR/DEBIAN"
+          mkdir -p "$ARCHIVE_DIR/opt/xdm"
+          mkdir -p "$ARCHIVE_DIR/usr/bin"
+          mkdir -p "$ARCHIVE_DIR/usr/share/applications"
+          mkdir -p "$ARCHIVE_DIR/usr/share/icons/hicolor/scalable/apps"
+          mkdir -p "$ARCHIVE_DIR/usr/share/icons/hicolor/512x512/apps"
+          mkdir -p "$ARCHIVE_DIR/usr/share/licenses/xdm"
+
+          # Copy files
+          cp -r dist/linux-${{ matrix.arch }}/* "$ARCHIVE_DIR/opt/xdm/"
+          chmod +x "$ARCHIVE_DIR/opt/xdm/xdm-app"
+          chmod +x "$ARCHIVE_DIR/opt/xdm/browser-host/xdm-app-host"
+
+          # Control file
+          cat > "$ARCHIVE_DIR/DEBIAN/control" <<EOF
+          Package: xdm
+          Version: ${{ needs.version.outputs.version }}
+          Architecture: amd64
+          Maintainer: WissamZa <wissam@example.com>
+          Description: Xtreme Download Manager - Powerful download accelerator and video downloader
+           XDM accelerates download speeds by up to 500% with advanced segmenting
+           technology. It can save streaming videos from YouTube, Vimeo, and
+           thousands of other sites. Features include adaptive streaming support
+           for HLS and DASH, built-in media converter, batch downloading,
+           schedule and speed limiter.
+          Depends: dotnet-runtime-8.0, libgtk-3-0 (>= 3.22), ffmpeg, libgdiplus, sqlite3
+          Section: net
+          Priority: optional
+          Homepage: https://github.com/WissamZa/xdm
+          EOF
+
+          # Desktop entry
+          cat > "$ARCHIVE_DIR/usr/share/applications/xdm.desktop" <<EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Xtreme Download Manager
+          Comment=Powerful download accelerator and video downloader
+          Exec=env GTK_USE_PORTAL=1 /opt/xdm/xdm-app %U
+          Icon=xdm
+          Categories=Network;FileTransfer;
+          MimeType=x-scheme-handler/xdm-app;
+          StartupNotify=true
+          StartupWMClass=xdm-app
+          Keywords=download;manager;accelerator;video;
+          EOF
+
+          # Symlinks
+          ln -s /opt/xdm/xdm-app "$ARCHIVE_DIR/usr/bin/xdm"
+          ln -s /opt/xdm/xdm-app "$ARCHIVE_DIR/usr/bin/xdman"
+
+          # Icons
+          cp "$ARCHIVE_DIR/opt/xdm/xdm-logo.svg" "$ARCHIVE_DIR/usr/share/icons/hicolor/scalable/apps/xdm.svg" 2>/dev/null || true
+          cp "$ARCHIVE_DIR/opt/xdm/xdm-logo.png" "$ARCHIVE_DIR/usr/share/icons/hicolor/512x512/apps/xdm.png" 2>/dev/null || true
+
+          # License
+          cp LICENSE "$ARCHIVE_DIR/usr/share/licenses/xdm/LICENSE"
+
+          # Post-install / Post-remove
+          cat > "$ARCHIVE_DIR/DEBIAN/postinst" <<'SCRIPT'
+          #!/bin/bash
+          update-desktop-database -q 2>/dev/null || true
+          gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+          SCRIPT
+          chmod 755 "$ARCHIVE_DIR/DEBIAN/postinst"
+
+          cat > "$ARCHIVE_DIR/DEBIAN/postrm" <<'SCRIPT'
+          #!/bin/bash
+          update-desktop-database -q 2>/dev/null || true
+          gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+          SCRIPT
+          chmod 755 "$ARCHIVE_DIR/DEBIAN/postrm"
+
+          dpkg-deb --build "$ARCHIVE_DIR"
+
+      - name: Create .rpm package (x64 only)
+        if: matrix.arch == 'x64'
+        run: |
+          ARCHIVE_DIR="rpm-build"
+          mkdir -p "$ARCHIVE_DIR/SOURCES"
+          mkdir -p "$ARCHIVE_DIR/SPECS"
+
+          tar -cJf "$ARCHIVE_DIR/SOURCES/xdm-${{ needs.version.outputs.version }}.tar.xz" \
+            -C dist/linux-${{ matrix.arch }} .
+
+          cat > "$ARCHIVE_DIR/SPECS/xdm.spec" <<EOF
+          Name:           xdm
+          Version:        ${{ needs.version.outputs.version }}
+          Release:        1%{?dist}
+          Summary:        Xtreme Download Manager - Powerful download accelerator and video downloader
+
+          License:        GPL-3.0-only
+          URL:            https://github.com/WissamZa/xdm
+          Source0:        xdm-%{version}.tar.xz
+
+          BuildArch:      x86_64
+          Requires:       dotnet-runtime-8.0 gtk3 ffmpeg libgdiplus sqlite
+
+          %description
+          Xtreme Download Manager (XDM) accelerates download speeds by up to 500%
+          with advanced segmenting technology. Features include video grabbing from
+          popular sites, adaptive streaming (HLS/DASH) support, built-in media
+          converter, batch downloading, and schedule management.
+
+          %install
+          mkdir -p %{buildroot}/opt/xdm
+          mkdir -p %{buildroot}/usr/bin
+          mkdir -p %{buildroot}/usr/share/applications
+          mkdir -p %{buildroot}/usr/share/icons/hicolor/scalable/apps
+          mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
+          mkdir -p %{buildroot}/usr/share/licenses/xdm
+
+          tar xf %{SOURCE0} -C %{buildroot}/opt/xdm
+          chmod +x %{buildroot}/opt/xdm/xdm-app
+          chmod +x %{buildroot}/opt/xdm/browser-host/xdm-app-host
+
+          ln -sf /opt/xdm/xdm-app %{buildroot}/usr/bin/xdm
+          ln -sf /opt/xdm/xdm-app %{buildroot}/usr/bin/xdman
+
+          cat > %{buildroot}/usr/share/applications/xdm.desktop <<DESKTOP
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Xtreme Download Manager
+          Comment=Powerful download accelerator and video downloader
+          Exec=env GTK_USE_PORTAL=1 /opt/xdm/xdm-app %U
+          Icon=xdm
+          Categories=Network;FileTransfer;
+          StartupNotify=true
+          DESKTOP
+
+          cp %{buildroot}/opt/xdm/xdm-logo.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/xdm.svg 2>/dev/null || true
+          cp %{buildroot}/opt/xdm/xdm-logo.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/xdm.png 2>/dev/null || true
+
+          %files
+          /opt/xdm
+          /usr/bin/xdm
+          /usr/bin/xdman
+          /usr/share/applications/xdm.desktop
+          /usr/share/icons/hicolor/scalable/apps/xdm.svg
+          /usr/share/icons/hicolor/512x512/apps/xdm.png
+          EOF
+
+          rpmbuild --define "_topdir $PWD/$ARCHIVE_DIR" -bb "$ARCHIVE_DIR/SPECS/xdm.spec"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xdm-linux-${{ matrix.arch }}
+          path: |
+            xdm-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.tar.xz
+            deb-build/*.deb
+            rpm-build/RPMS/x86_64/*.rpm
+
+  # ===========================================================================
+  # Job 3: Build Windows
+  # ===========================================================================
+  build-windows:
+    name: Build Windows (x86)
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore NuGet packages
+        run: dotnet restore app/XDM/XDM.sln
+
+      - name: Publish main WPF application
+        run: |
+          dotnet publish app/XDM/XDM.Wpf.UI/XDM.Wpf.UI.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained false `
+            -o dist/windows `
+            -p:Platform=x86 `
+            -p:PublishReadyToRun=true `
+            --nologo
+
+      - name: Publish browser host
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/windows/browser-host
+          dotnet publish app/XDM/XDM.App.Host/XDM.App.Host.csproj `
+            -c Release `
+            -r win-x86 `
+            --self-contained false `
+            -o dist/windows/browser-host `
+            -p:Platform=x86 `
+            --nologo
+
+      - name: Copy extensions
+        run: |
+          if (Test-Path dist/windows) {
+            Copy-Item -Path app/XDM/chrome-extension -Destination dist/windows/chrome-extension -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Create portable ZIP archive
+        run: |
+          Compress-Archive -Path dist/windows/* -DestinationPath xdm-${{ needs.version.outputs.version }}-windows-x86.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xdm-windows
+          path: xdm-${{ needs.version.outputs.version }}-windows-x86.zip
+
+  # ===========================================================================
+  # Job 4: Build macOS
+  # ===========================================================================
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    needs: version
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64]
+        include:
+          - arch: arm64
+            rid: osx-arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install GTK3 and FFmpeg
+        run: brew install gtk+3 ffmpeg
+
+      - name: Restore NuGet packages
+        run: dotnet restore app/XDM/XDM.sln
+
+      - name: Publish main application
+        run: |
+          dotnet publish app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained false \
+            -o dist/macos-${{ matrix.arch }} \
+            -p:PublishReadyToRun=true \
+            --nologo
+
+      - name: Publish browser host
+        run: |
+          mkdir -p dist/macos-${{ matrix.arch }}/browser-host
+          dotnet publish app/XDM/XDM.App.Host/XDM.App.Host.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained false \
+            -o dist/macos-${{ matrix.arch }}/browser-host \
+            --nologo
+
+      - name: Copy icons and extensions
+        run: |
+          cp dist/linux/xdm-logo.svg dist/macos-${{ matrix.arch }}/ 2>/dev/null || true
+          cp dist/linux/xdm-logo-512.png dist/macos-${{ matrix.arch }}/xdm-logo.png 2>/dev/null || true
+          cp -r dist/linux/chrome-extension dist/macos-${{ matrix.arch }}/ 2>/dev/null || true
+
+      - name: Make binaries executable
+        run: |
+          chmod +x dist/macos-${{ matrix.arch }}/xdm-app
+          chmod +x dist/macos-${{ matrix.arch }}/browser-host/xdm-app-host
+
+      - name: Create macOS app bundle structure
+        run: |
+          APP_DIR="dist/Xtreme Download Manager.app"
+          mkdir -p "$APP_DIR/Contents/MacOS"
+          mkdir -p "$APP_DIR/Contents/Resources"
+          mkdir -p "$APP_DIR/Contents/Frameworks"
+
+          cp -r dist/macos-${{ matrix.arch }}/* "$APP_DIR/Contents/MacOS/"
+
+          cat > "$APP_DIR/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>xdm-app</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.xtremedownloadmanager.xdm</string>
+              <key>CFBundleName</key>
+              <string>Xtreme Download Manager</string>
+              <key>CFBundleDisplayName</key>
+              <string>XDM</string>
+              <key>CFBundleVersion</key>
+              <string>${{ needs.version.outputs.version }}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${{ needs.version.outputs.version }}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleIconFile</key>
+              <string>xdm-logo</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.15</string>
+              <key>NSAppleEventsUsageDescription</key>
+              <string>XDM needs this permission to integrate with your browser.</string>
+          </dict>
+          </plist>
+          EOF
+
+          cp dist/macos-${{ matrix.arch }}/xdm-logo.png "$APP_DIR/Contents/Resources/xdm-logo.png" 2>/dev/null || true
+
+      - name: Create portable tar.xz archive
+        run: |
+          cd dist/macos-${{ matrix.arch }}
+          tar -cJf ../../xdm-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.tar.xz .
+          cd ../..
+
+      - name: Create DMG image
+        run: |
+          hdiutil create -volname "Xtreme Download Manager" \
+            -srcfolder "dist/Xtreme Download Manager.app" \
+            -ov -format UDZO \
+            "xdm-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.dmg"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xdm-macos-${{ matrix.arch }}
+          path: |
+            xdm-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.tar.xz
+            xdm-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.dmg
+
+  # ===========================================================================
+  # Job 5: Build Browser Extensions
+  # ===========================================================================
+  build-extensions:
+    name: Build Browser Extensions
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Brave/Chrome Extension (MV3)
+        run: |
+          EXT_DIR="browser-extensions/brave-chrome"
+          SRC_DIR="dist/linux/chrome-extension"
+
+          mkdir -p "$EXT_DIR"
+          cp -r "$SRC_DIR"/* "$EXT_DIR"/
+
+          # Update manifest version
+          cat > "$EXT_DIR/manifest.json" <<'EOF'
+          {
+              "name": "XDM Browser Monitor",
+              "action": {},
+              "manifest_version": 3,
+              "version": "1.0.0",
+              "description": "Download with Xtreme Download Manager. Supports Brave, Chrome, Edge, Vivaldi, and other Chromium-based browsers.",
+              "host_permissions": [
+                  "*://*/*"
+              ],
+              "permissions": [
+                  "downloads",
+                  "cookies",
+                  "webRequest",
+                  "tabs",
+                  "storage",
+                  "contextMenus",
+                  "alarms"
+              ],
+              "background": {
+                  "service_worker": "main.js",
+                  "type": "module"
+              },
+              "icons": {
+                  "16": "icon16.png",
+                  "48": "icon48.png",
+                  "128": "icon128.png"
+              },
+              "content_security_policy": {
+                  "extension_pages": "script-src 'self'; object-src 'self'"
+              }
+          }
+          EOF
+
+          # Package as ZIP for Chrome Web Store
+          cd "$EXT_DIR"
+          zip -r ../../xdm-browser-extension-brave-chrome-v1.0.0.zip .
+          cd ../..
+
+      - name: Build Firefox Extension (MV3)
+        run: |
+          EXT_DIR="browser-extensions/firefox"
+          SRC_DIR="dist/linux/chrome-extension"
+
+          mkdir -p "$EXT_DIR"
+          cp -r "$SRC_DIR"/* "$EXT_DIR"/
+
+          # Firefox Manifest V3 - uses browser. APIs + native messaging
+          cat > "$EXT_DIR/manifest.json" <<'EOF'
+          {
+              "name": "XDM Browser Monitor",
+              "manifest_version": 3,
+              "version": "1.0.0",
+              "description": "Download with Xtreme Download Manager for Firefox.",
+              "host_permissions": [
+                  "*://*/*"
+              ],
+              "permissions": [
+                  "downloads",
+                  "cookies",
+                  "webRequest",
+                  "tabs",
+                  "storage",
+                  "contextMenus",
+                  "alarms"
+              ],
+              "background": {
+                  "scripts": ["app.js", "main.js"],
+                  "type": "module"
+              },
+              "icons": {
+                  "16": "icon16.png",
+                  "48": "icon48.png",
+                  "128": "icon128.png"
+              },
+              "browser_specific_settings": {
+                  "gecko": {
+                      "id": "xdm-browser-monitor@subhra74.github.io",
+                      "strict_min_version": "110.0"
+                  }
+              }
+          }
+          EOF
+
+          # Package as ZIP for AMO
+          cd "$EXT_DIR"
+          zip -r ../../xdm-browser-extension-firefox-v1.0.0.zip .
+          cd ../..
+
+      - name: Upload extension artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xdm-browser-extensions
+          path: |
+            xdm-browser-extension-brave-chrome-v1.0.0.zip
+            xdm-browser-extension-firefox-v1.0.0.zip
+
+  # ===========================================================================
+  # Job 6: AUR Source Package
+  # ===========================================================================
+  aur-source:
+    name: Prepare AUR Package
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate .SRCINFO
+        run: |
+          cd packaging/aur
+
+          # Generate .SRCINFO from PKGBUILD using makepkg --printsrcinfo equivalent
+          cat > .SRCINFO <<EOF
+          pkgbase = xdm
+              pkgdesc = Xtreme Download Manager - Powerful download accelerator and video downloader
+              pkgver = ${{ needs.version.outputs.version }}
+              pkgrel = 1
+              url = https://github.com/WissamZa/xdm
+              arch = x86_64
+              arch = aarch64
+              arch = armv7h
+              license = GPL-3.0-only
+              depends = dotnet-runtime-8.0
+              depends = gtk3
+              depends = ffmpeg
+              depends = sqlite
+              depends = libgdiplus
+              makedepends = dotnet-sdk-8.0
+              makedepends = git
+              optdepends = xdm-browser-extension-chrome: Browser extension for Chrome/Brave/Edge/Vivaldi
+              optdepends = xdm-browser-extension-firefox: Browser extension for Firefox
+              provides = xdm
+              provides = xdman
+              provides = xtreme-download-manager
+              conflicts = xdman
+              conflicts = xtremedownloadmanager
+              options = !strip
+              options = !debug
+              source = xdm-${{ needs.version.outputs.version }}.tar.gz::https://github.com/WissamZa/xdm/archive/refs/tags/v${{ needs.version.outputs.version }}.tar.gz
+              sha256sums = SKIP
+          pkgname = xdm
+          EOF
+
+          echo "Generated .SRCINFO"
+
+      - name: Upload AUR package files
+        uses: actions/upload-artifact@v4
+        with:
+          name: xdm-aur-package
+          path: |
+            packaging/aur/PKGBUILD
+            packaging/aur/.SRCINFO
+            packaging/aur/xdm.install
+
+  # ===========================================================================
+  # Job 7: Create GitHub Release
+  # ===========================================================================
+  release:
+    name: Create GitHub Release
+    needs:
+      - version
+      - build-linux
+      - build-windows
+      - build-macos
+      - build-extensions
+      - aur-source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List all release files
+        run: find release-artifacts -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "XDM v${{ needs.version.outputs.version }}"
+          body: |
+            ## Xtreme Download Manager v${{ needs.version.outputs.version }}
+
+            ### Downloads
+
+            | Platform | File |
+            |----------|------|
+            | **Linux x64** (portable) | `xdm-${{ needs.version.outputs.version }}-linux-x64.tar.xz` |
+            | **Linux ARM64** (portable) | `xdm-${{ needs.version.outputs.version }}-linux-arm64.tar.xz` |
+            | **Debian/Ubuntu** (.deb) | `xdm_${{ needs.version.outputs.version }}_amd64.deb` |
+            | **Fedora/RHEL** (.rpm) | `xdm-${{ needs.version.outputs.version }}-1.x86_64.rpm` |
+            | **Windows** (portable) | `xdm-${{ needs.version.outputs.version }}-windows-x86.zip` |
+            | **macOS ARM64** (portable) | `xdm-${{ needs.version.outputs.version }}-macos-arm64.tar.xz` |
+            | **macOS ARM64** (.dmg) | `xdm-${{ needs.version.outputs.version }}-macos-arm64.dmg` |
+
+            ### Arch Linux (AUR)
+            Install directly with yay:
+            ```bash
+            yay -S xdm
+            ```
+
+            ### Browser Extensions
+            - **Brave / Chrome / Edge / Vivaldi**: Load `xdm-browser-extension-brave-chrome-*.zip` as unpacked extension
+            - **Firefox**: Load `xdm-browser-extension-firefox-*.zip` temporarily in about:debugging
+
+            ### Prerequisites
+            - **.NET 8.0 Runtime** (bundled in self-contained builds, or install via package manager)
+            - **GTK3** (Linux/macOS)
+            - **FFmpeg** (for video conversion)
+
+            ### Quick Start
+            ```bash
+            # Extract and run (Linux/macOS)
+            tar -xf xdm-*-linux-x64.tar.xz
+            cd xdm-linux-x64
+            ./xdm-app
+            ```
+
+            ---
+            **Full Changelog**: https://github.com/WissamZa/xdm/compare/v${{ needs.version.outputs.version }}...HEAD
+          draft: false
+          prerelease: ${{ contains(needs.version.outputs.version, '-') }}
+          files: |
+            release-artifacts/xdm-*linux-x64.tar.xz
+            release-artifacts/xdm-*linux-arm64.tar.xz
+            release-artifacts/deb-build/*.deb
+            release-artifacts/rpm-build/RPMS/x86_64/*.rpm
+            release-artifacts/xdm-*windows-x86.zip
+            release-artifacts/xdm-*macos-arm64.tar.xz
+            release-artifacts/xdm-*macos-arm64.dmg
+            release-artifacts/xdm-browser-extension-*.zip
+            release-artifacts/packaging/aur/PKGBUILD
+            release-artifacts/packaging/aur/.SRCINFO
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

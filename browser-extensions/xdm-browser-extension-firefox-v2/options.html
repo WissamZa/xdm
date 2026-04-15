@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>XDM - Options</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="options-container">
+    <div class="options-title">XDM Browser Monitor Settings</div>
+
+    <div class="options-group">
+      <label for="serverUrl">XDM Server URL</label>
+      <input type="text" id="serverUrl" placeholder="http://127.0.0.1:8597">
+      <div class="hint">The URL where XDM desktop app is running. Default: http://127.0.0.1:8597</div>
+    </div>
+
+    <div class="options-group">
+      <label class="toggle-label">
+        <input type="checkbox" id="monitoringEnabled" checked>
+        <span class="toggle-switch"></span>
+        <span class="toggle-text">Enable browser monitoring</span>
+      </label>
+      <div class="hint">When enabled, XDM will intercept matching downloads and media streams.</div>
+    </div>
+
+    <div class="options-group">
+      <label class="toggle-label">
+        <input type="checkbox" id="showNotifications" checked>
+        <span class="toggle-switch"></span>
+        <span class="toggle-text">Show download notifications</span>
+      </label>
+      <div class="hint">Display a notification when XDM captures a download.</div>
+    </div>
+
+    <button class="save-btn" id="saveBtn">Save Settings</button>
+    <div class="status-msg" id="statusMsg">Settings saved successfully!</div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Load current settings
+      const data = await chrome.storage.local.get([
+        'xdmServerUrl', 'monitoringEnabled', 'showNotifications'
+      ]);
+
+      document.getElementById('serverUrl').value = data.xdmServerUrl || 'http://127.0.0.1:8597';
+      document.getElementById('monitoringEnabled').checked = data.monitoringEnabled !== false;
+      document.getElementById('showNotifications').checked = data.showNotifications !== false;
+
+      // Save settings
+      document.getElementById('saveBtn').addEventListener('click', async () => {
+        const settings = {
+          xdmServerUrl: document.getElementById('serverUrl').value.trim(),
+          monitoringEnabled: document.getElementById('monitoringEnabled').checked,
+          showNotifications: document.getElementById('showNotifications').checked
+        };
+
+        await chrome.storage.local.set(settings);
+
+        // Notify background script
+        chrome.runtime.sendMessage({
+          type: "settings",
+          serverUrl: settings.xdmServerUrl,
+          monitoringEnabled: settings.monitoringEnabled,
+          showNotifications: settings.showNotifications
+        });
+
+        // Show success message
+        const msg = document.getElementById('statusMsg');
+        msg.style.display = 'block';
+        setTimeout(() => { msg.style.display = 'none'; }, 2000);
+      });
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,52 @@
+{
+    "name": "XDM Browser Monitor",
+    "action": {
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png",
+            "128": "icon128.png"
+        },
+        "default_popup": "popup.html",
+        "default_title": "XDM - Xtreme Download Manager"
+    },
+    "manifest_version": 3,
+    "version": "2.0.0",
+    "version_name": "2.0.0",
+    "description": "Download with Xtreme Download Manager for Firefox. Captures downloads, streams videos from popular sites, and integrates with XDM desktop app.",
+    "host_permissions": [
+        "*://*/*",
+        "http://127.0.0.1:8597/*"
+    ],
+    "permissions": [
+        "downloads",
+        "cookies",
+        "webRequest",
+        "tabs",
+        "storage",
+        "contextMenus",
+        "alarms",
+        "scripting"
+    ],
+    "background": {
+        "scripts": ["logger.js", "request-watcher.js", "connector.js", "app.js", "main.js"],
+        "type": "module"
+    },
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8597/*"
+    },
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": false
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "xdm-browser-monitor@subhra74.github.io",
+            "strict_min_version": "110.0"
+        }
+    }
+}

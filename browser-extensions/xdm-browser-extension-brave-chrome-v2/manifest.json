@@ -1,0 +1,54 @@
+{
+    "name": "XDM Browser Monitor",
+    "action": {
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png",
+            "128": "icon128.png"
+        },
+        "default_popup": "popup.html",
+        "default_title": "XDM - Xtreme Download Manager"
+    },
+    "manifest_version": 3,
+    "version": "2.0.0",
+    "version_name": "2.0.0",
+    "description": "Download with Xtreme Download Manager. Seamlessly integrates with Brave, Chrome, Edge, Vivaldi and other Chromium-based browsers to accelerate downloads up to 500% and capture streaming videos.",
+    "host_permissions": [
+        "*://*/*",
+        "http://127.0.0.1:8597/*"
+    ],
+    "permissions": [
+        "downloads",
+        "cookies",
+        "webRequest",
+        "tabs",
+        "storage",
+        "contextMenus",
+        "alarms",
+        "scripting"
+    ],
+    "background": {
+        "service_worker": "main.js",
+        "type": "module"
+    },
+    "icons": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8597/*"
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content-injector.js"],
+            "run_at": "document_start",
+            "all_frames": false
+        }
+    ],
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": false
+    }
+}

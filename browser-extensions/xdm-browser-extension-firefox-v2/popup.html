@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=420, initial-scale=1.0">
+  <title>XDM Browser Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="popup.js"></script>
+</head>
+
+<body>
+  <!-- Header -->
+  <div class="header">
+    <img src="xdm-logo-orange.png" alt="XDM" class="logo" onerror="this.style.display='none'">
+    <div class="header-text">
+      <div class="header-title">XDM Browser Monitor</div>
+      <div class="header-subtitle" id="status-text">Connected</div>
+    </div>
+    <div class="status-indicator" id="status-dot"></div>
+  </div>
+
+  <!-- Video List -->
+  <div id="content" class="content" style="display: none;">
+    <div class="section-title">Detected Media</div>
+    <div id="list" class="video-list">
+      <table id="table" class="video-table"></table>
+    </div>
+    <div class="action-buttons">
+      <button id="format" class="flat-btn" title="Play video in desired format first">More Formats</button>
+      <div class="divider"></div>
+      <button id="clear" class="flat-btn">Clear All</button>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="content">
+    <div class="empty-icon">&#8595;</div>
+    <div class="empty-text">No media detected on this page</div>
+    <div class="empty-hint">Visit a video site or start a download to see content here</div>
+  </div>
+
+  <!-- Footer with toggle -->
+  <div class="footer">
+    <label class="toggle-label">
+      <input type="checkbox" id="chk" checked>
+      <span class="toggle-switch"></span>
+      <span class="toggle-text">Browser Monitoring</span>
+    </label>
+  </div>
+</body>
+
+</html>

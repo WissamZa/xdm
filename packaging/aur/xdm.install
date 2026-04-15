@@ -1,0 +1,31 @@
+post_install() {
+  echo "==> XDM (Xtreme Download Manager) installed successfully!"
+  echo ""
+  echo "  To launch:    xdm"
+  echo "  Or:           /opt/xdm/xdm-app"
+  echo ""
+  echo "  Browser Extension Setup:"
+  echo "  - Chrome/Brave/Edge: Load the extension from /opt/xdm/chrome-extension/"
+  echo "  - Firefox: Install 'XDM Browser Monitor' from addons.mozilla.org"
+  echo ""
+  echo "  The extension connects to XDM via HTTP on localhost:8597"
+  echo "  Make sure XDM is running before using the browser extension."
+  echo ""
+  echo "  Tips:"
+  echo "  - Set GTK_USE_PORTAL=1 for better Wayland support"
+  echo "  - Configure file types and monitoring in XDM Settings > Browser Integration"
+  update-desktop-database -q 2>/dev/null || true
+  gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+}
+
+post_upgrade() {
+  post_install
+}
+
+post_remove() {
+  echo "==> XDM has been removed."
+  echo "    User data at ~/.local/share/XDM/ was NOT removed."
+  echo "    Remove it manually if desired."
+  update-desktop-database -q 2>/dev/null || true
+  gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+}

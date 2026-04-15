@@ -1,0 +1,194 @@
+# =============================================================================
+# XDM — Xtreme Download Manager
+# Automated Tag & Release Creation Workflow
+#
+# Triggers:
+#   - Manual dispatch (with version input)
+#   - Push to main branch (auto-patch version bump)
+#
+# Actions:
+#   - Creates git tag
+#   - Generates changelog from commits
+#   - Triggers the release workflow
+# =============================================================================
+
+name: Tag & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 9.0.0 or 9.1.0-beta.1)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      auto_merge:
+        description: 'Auto-merge main branch before tagging'
+        required: false
+        type: boolean
+        default: true
+
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/**'
+      - 'translation-generator/**'
+
+jobs:
+  # ===========================================================================
+  # Auto-detect version bump (only on push to main)
+  # ===========================================================================
+  detect-version:
+    name: Detect Version Bump
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      new_version: ${{ steps.check.outputs.new_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check if release is needed
+        id: check
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git tag --sort=-version:refname | head -n1)
+          echo "Latest tag: $LATEST_TAG"
+
+          if [[ -z "$LATEST_TAG" ]]; then
+            echo "No tags found, creating initial release"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "new_version=1.0.0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check commits since last tag
+          COMMIT_COUNT=$(git log "$LATEST_TAG..HEAD" --oneline | wc -l)
+          echo "Commits since $LATEST_TAG: $COMMIT_COUNT"
+
+          if [[ "$COMMIT_COUNT" -eq 0 ]]; then
+            echo "No new commits, skipping release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Bump version
+          CURRENT_VERSION="${LATEST_TAG#v}"
+          MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+
+          # Auto-increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+  # ===========================================================================
+  # Create tag and changelog
+  # ===========================================================================
+  create-tag:
+    name: Create Tag & Changelog
+    needs: detect-version
+    if: |
+      always() && (
+        (github.event_name == 'push' && needs.detect-version.outputs.should_release == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ needs.detect-version.outputs.new_version }}"
+          fi
+          TAG="v${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Creating tag: $TAG for version: $VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the latest tag before this one
+          LATEST_TAG=$(git tag --sort=-version:refname | head -n1)
+
+          if [[ -z "$LATEST_TAG" ]] || [[ "$LATEST_TAG" == "${{ steps.version.outputs.tag }}" ]]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" HEAD~20..HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$LATEST_TAG"..HEAD)
+          fi
+
+          # Save to file for multi-line handling
+          echo "$CHANGELOG" > /tmp/changelog.txt
+
+          # Create a GitHub-compatible body (escape for env)
+          {
+            echo "CHANGELOG<<EOFCHANGELOG"
+            cat /tmp/changelog.txt
+            echo "EOFCHANGELOG"
+          } >> "$GITHUB_ENV"
+
+          echo "Generated changelog with $(echo "$CHANGELOG" | wc -l) entries"
+
+      - name: Create git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping tag creation"
+            exit 0
+          fi
+
+          # Create annotated tag
+          git tag -a "$TAG" -m "Release XDM v${VERSION}" -m "Automated release by GitHub Actions"
+
+          # Push the tag
+          git push origin "$TAG"
+          echo "Tag $TAG pushed successfully"
+
+  # ===========================================================================
+  # Trigger release workflow
+  # ===========================================================================
+  trigger-release:
+    name: Trigger Release Workflow
+    needs: create-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger release
+        run: |
+          echo "Release tag ${{ needs.create-tag.outputs.tag }} created."
+          echo "The release.yml workflow will be triggered automatically by the tag push."
+          echo ""
+          echo "Version: ${{ needs.create-tag.outputs.version }}"
+          echo "Tag: ${{ needs.create-tag.outputs.tag }}"

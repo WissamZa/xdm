@@ -1,0 +1,177 @@
+# Maintainer: WissamZa <wissam@example.com>
+# Contributor: Xtreme Download Manager contributors
+pkgname=xdm
+pkgver=9.0.0
+pkgrel=1
+pkgdesc="Xtreme Download Manager - Powerful download accelerator and video downloader"
+arch=('x86_64' 'aarch64' 'armv7h')
+url="https://github.com/WissamZa/xdm"
+license=('GPL-3.0-only')
+depends=(
+  'dotnet-runtime-8.0'
+  'gtk3>=3.22.0'
+  'ffmpeg'
+  'sqlite'
+  'libgdiplus'
+)
+makedepends=(
+  'dotnet-sdk-8.0'
+  'git'
+)
+optdepends=(
+  'xdm-browser-extension-chrome: Browser extension for Chrome/Brave/Edge/Vivaldi'
+  'xdm-browser-extension-firefox: Browser extension for Firefox'
+)
+provides=('xdm' 'xdman' 'xtreme-download-manager')
+conflicts=('xdman' 'xtremedownloadmanager')
+options=('!strip' '!debug')
+install=xdm.install
+source=(
+  "$pkgname-$pkgver.tar.gz::https://github.com/WissamZa/xdm/archive/refs/tags/v$pkgver.tar.gz"
+)
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # Ensure submodules are initialized if any
+  git submodule update --init --recursive 2>/dev/null || true
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  local rid="linux-x64"
+  case "$CARCH" in
+    x86_64)  rid="linux-x64" ;;
+    aarch64) rid="linux-arm64" ;;
+    armv7h)  rid="linux-arm" ;;
+  esac
+
+  msg2 "Building XDM for $rid..."
+
+  # Build main GTK application
+  dotnet publish "app/XDM/XDM.Gtk.UI/XDM.Gtk.UI.csproj" \
+    -c Release \
+    -r "$rid" \
+    --self-contained false \
+    -o "$srcdir/build-output" \
+    -p:PublishReadyToRun=true \
+    --nologo
+
+  # Build browser integration host
+  mkdir -p "$srcdir/build-output/browser-host"
+  dotnet publish "app/XDM/XDM.App.Host/XDM.App.Host.csproj" \
+    -c Release \
+    -r "$rid" \
+    --self-contained false \
+    -o "$srcdir/build-output/browser-host" \
+    --nologo
+
+  # Copy icon
+  if [[ -f "app/XDM/XDM.Gtk.UI/xdm-logo-512.png" ]]; then
+    cp "app/XDM/XDM.Gtk.UI/xdm-logo-512.png" "$srcdir/build-output/xdm-logo.png"
+  fi
+  if [[ -f "dist/linux/xdm-logo.svg" ]]; then
+    cp "dist/linux/xdm-logo.svg" "$srcdir/build-output/xdm-logo.svg"
+  fi
+
+  # Copy chrome extension
+  if [[ -d "dist/linux/chrome-extension" ]]; then
+    cp -r "dist/linux/chrome-extension" "$srcdir/build-output/chrome-extension"
+  fi
+
+  # Copy browser-host native messaging configs
+  if [[ -d "dist/linux/browser-host" ]]; then
+    cp "dist/linux/browser-host/xdm_chrome.native_host.json" "$srcdir/build-output/browser-host/" 2>/dev/null || true
+    cp "dist/linux/browser-host/xdmff.native_host.json" "$srcdir/build-output/browser-host/" 2>/dev/null || true
+  fi
+}
+
+package() {
+  cd "$srcdir/build-output"
+
+  # Main application to /opt/xdm
+  install -dm755 "$pkgdir/opt/xdm"
+  install -dm755 "$pkgdir/opt/xdm/browser-host"
+
+  # Install main app files
+  for f in *; do
+    if [[ "$f" == "browser-host" ]]; then
+      continue
+    fi
+    if [[ -f "$f" ]]; then
+      install -m644 "$f" "$pkgdir/opt/xdm/"
+    elif [[ -d "$f" ]] && [[ "$f" != "browser-host" ]]; then
+      cp -r "$f" "$pkgdir/opt/xdm/"
+    fi
+  done
+
+  # Install browser host files
+  for f in browser-host/*; do
+    if [[ -f "$f" ]]; then
+      install -m644 "$f" "$pkgdir/opt/xdm/browser-host/"
+    fi
+  done
+
+  # Make binaries executable
+  chmod +x "$pkgdir/opt/xdm/xdm-app"
+  chmod +x "$pkgdir/opt/xdm/browser-host/xdm-app-host"
+
+  # Desktop entry
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/xdm.desktop" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Xtreme Download Manager
+Comment=Powerful download accelerator and video downloader
+Exec=env GTK_USE_PORTAL=1 /opt/xdm/xdm-app %U
+Icon=xdm
+Categories=Network;FileTransfer;
+MimeType=x-scheme-handler/xdm-app;
+StartupNotify=true
+StartupWMClass=xdm-app
+Keywords=download;manager;accelerator;video;
+EOF
+
+  # Symlink binary
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s /opt/xdm/xdm-app "$pkgdir/usr/bin/xdm"
+  ln -s /opt/xdm/xdm-app "$pkgdir/usr/bin/xdman"
+
+  # Icons
+  install -Dm644 "$pkgdir/opt/xdm/xdm-logo.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/xdm.svg"
+  if [[ -f "$pkgdir/opt/xdm/xdm-logo.png" ]]; then
+    install -Dm644 "$pkgdir/opt/xdm/xdm-logo.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/xdm.png"
+  fi
+
+  # Source package type indicator (for XDM's internal use)
+  echo "pkg" > "$pkgdir/opt/xdm/source_pkg.txt"
+
+  # License
+  install -Dm644 "$srcdir/$pkgname-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # Man page
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/man/man1/xdm.1" <<EOF
+.TH XDM 1 "2025" "Xtreme Download Manager" "User Commands"
+.SH NAME
+xdm \- Xtreme Download Manager
+.SH SYNOPSIS
+.B xdm
+[\fIOPTIONS\fR]...
+.SH DESCRIPTION
+Xtreme Download Manager (XDM) is a powerful tool to increase download
+speeds by up to 500%, save streaming videos from websites, and manage
+download schedules and queues.
+.SH OPTIONS
+XDM accepts standard GTK options. See GTK documentation for details.
+.SH FILES
+.TP
+.I /opt/xdm/
+Application installation directory
+.TP
+.I ~/.local/share/XDM/
+User configuration and database directory
+.SH SEE ALSO
+https://github.com/WissamZa/xdm
+EOF
+}
