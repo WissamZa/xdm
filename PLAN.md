@@ -491,6 +491,7 @@ All changes are listed in reverse-chronological order.
 | 6 | `XDM.Gtk.UI.csproj` | `<PublishTrimmed>true</PublishTrimmed>` with `<TrimMode>Link</TrimMode>` may cause runtime trim failures with reflection-heavy code (Gtk bindings, SQLite) | Medium | Test required |
 | 7 | Various | `#if !NET5_0_OR_GREATER` compatibility shims in `XDM.Compatibility` — can be removed once all projects are on .NET 8 | Low | Medium |
 | 8 | `XDM.Core/Interop.WinHttp/` | WinHttp P/Invoke layer used only by `WinHttpClient` which is dead code | Low | Delete files |
+| 9 | `app/packaging/deb/` | Icon theme paths may need updating for different Linux distributions | Low | Low |
 
 ---
 
@@ -501,6 +502,7 @@ All changes are listed in reverse-chronological order.
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8) (8.0.x or later)
 - **Windows** (for WPF build): Visual Studio 2022 or `dotnet build`
 - **Linux** (for GTK build): GTK 3.x runtime libraries (`libgtk-3-dev` on Debian/Ubuntu)
+- **Linux** (for Wayland support): Wayland compositor (Weston, GNOME on Wayland, KDE Plasma with Wayland, etc.)
 - **FFmpeg** (optional, for media conversion): place `ffmpeg` binary in app directory
 - **yt-dlp** (optional, for video download): place `yt-dlp` binary in app directory
 
